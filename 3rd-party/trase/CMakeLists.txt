@@ -85,7 +85,7 @@ if (trase_BUILD_OPENGL)
         )
 
     if (NOT trase_Emscripten)
-        find_package (glfw3 3.2 REQUIRED)
+        # find_package (glfw3 3.2 REQUIRED) # qzk: we build it by ourselves now by add_subdirectory
         find_package (OpenGL REQUIRED)
     else()
         set(CMAKE_EXECUTABLE_SUFFIX ".html")
