@@ -9,3 +9,4 @@ HTML_EXTRA_STYLESHEET  = docs/customdoxygen.css
 HTML_FOOTER            = docs/footer.html
 HTML_HEADER            = docs/header.html
 IMAGE_PATH             = docs/figs
+OUTPUT_DIRECTORY       = ./build

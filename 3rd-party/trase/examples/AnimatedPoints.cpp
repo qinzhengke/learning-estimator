@@ -72,7 +72,8 @@ int main() {
     std::generate(r.begin(), r.end(), [&]() { return normal(gen); });
     std::generate(c.begin(), c.end(), [&]() { return normal(gen); });
     auto data = create_data().x(x).y(y).size(r).color(c);
-    points->add_frame(data, time);
+    // points->add_frame(data, time);
+    points->add_frame(data, time*4);
   };
 
   for (int i = 0; i < 5; ++i) {

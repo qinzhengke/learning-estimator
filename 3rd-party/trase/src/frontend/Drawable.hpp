@@ -67,8 +67,10 @@ struct FrameInfo {
       frame = 0.f;
     } else {
       const float delta_t = times[frame_above] - times[frame_above - 1];
-      w1 = (time_now - times[frame_above - 1]) / delta_t;
-      w2 = 1.f - w1;
+      // w1 = (time_now - times[frame_above - 1]) / delta_t;
+      // w2 = 1.f - w1;
+      w1 = 1.0f;
+      w2 = 0.f;
       frame = static_cast<float>(frame_above - 1) + w1;
     }
   }
