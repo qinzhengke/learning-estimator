@@ -23,11 +23,11 @@ add_executable(${PROJECT_NAME}
 )
 # 目标包含路径，现代写法
 target_include_directories(${PROJECT_NAME} PUBLIC
-    3rd-party/trase/src
+    ../3rd-party/matplotplusplus-1.0.1/source
 )
 # 目标链接库
 target_link_libraries(${PROJECT_NAME}
-    trase
+    matplot
 )
 # 目标编译宏定义，现代写法
 target_compile_definitions(${PROJECT_NAME} PUBLIC SOME_MACRO=1)

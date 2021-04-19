@@ -20,6 +20,5 @@ message("=> cmake ${PROJECT_NAME} in Release mode")
 endif()
 
 # 构建example子目录
-add_subdirectory(3rd-party/glfw-3.3.4)
-add_subdirectory(3rd-party/trase)
+add_subdirectory(3rd-party/matplotplusplus-1.0.1)
 add_subdirectory(particle_filter)
