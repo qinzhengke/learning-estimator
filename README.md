@@ -21,6 +21,6 @@ Google yourself if you want to change you default compiler for cmake permanently
 ### Dependencies
 
 ```
-sudo apt install libgl1-mesa-dev
+sudo apt install libgl1-mesa-dev gnuplot
 ```
 
