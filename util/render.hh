@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../3rd-party/matplotplusplus-1.0.1/source/matplot/matplot.h"
 
 using namespace std;
@@ -6,9 +8,17 @@ struct Point{
     double x,y;
 };
 
+using XYTuple = tuple<vector<double>,vector<double>>;
+
+enum RenderType{
+    LINE=0,
+    SCATTER
+};
+
 struct render_part_t{
     vector<double>x,y;
     string color="b";
+    RenderType type = LINE;
 };
 
 struct render_obj_t{
@@ -36,7 +46,12 @@ public:
         ax_->clear();
         for(int i=0; i<objs_.size(); i++){
             for(auto p : objs_[i].parts){
-                ax_->plot(p.x, p.y, p.color.c_str());
+                if(p.type == LINE){
+                    ax_->plot(p.x, p.y, p.color.c_str());
+                }
+                else if(p.type == SCATTER){
+                    ax_->plot(p.x, p.y, "o");
+                }
                 matplot::hold(matplot::on);
             }
         }

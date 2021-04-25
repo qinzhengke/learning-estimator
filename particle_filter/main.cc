@@ -1,16 +1,13 @@
 #include <fstream>
 #include <cmath>
-#include <tuple>
 #include <random>
 #include <matplot/matplot.h>
 #include "../util/render.hh"
+#include "robot.hh"
 
 using namespace std;
 
-using XYTuple = tuple<vector<double>,vector<double>>;
-
-class World{
-public:
+struct World{
 
     vector<double>world_x,world_y;
     World(){
@@ -28,152 +25,170 @@ public:
     }
 };
 
-struct State{
-    Point p;
-    double yaw;
-};
 
-class Robot{
-public:
+struct SensorGroup{
+    // Sensor numbers.
+    constexpr static int n = 6;
+    Point sensors[n];
 
-    // Point pos_;
-    // double yaw;
-    State curr_state_;
-    vector<State> future_state_;
-    double a0_,a1_=0,a2_=M_PI/2.0;
-    Point q0_,q1_={cos(a1_),sin(a1_)};
-    // vector<double> exe_curve_x_, exe_curve_y_;
-    default_random_engine rand_;
-
-    Robot(){ }
-
-    XYTuple currPlanLine(){
-        vector<double>x,y;
-        const int n = 100;
-        Point p0 = {cos(a0_),sin(a0_)}, p1={cos(a1_),sin(a1_)};
-        double dx = (p1.x - p0.x)/(double)n, dy = (p1.y - p0.y)/(double)n;
-        for(int i=0; i<n+1; i++){
-            x.push_back(p0.x+dx*(double)i);
-            y.push_back(p0.y+dy*(double)i);
-        }
-
-        return XYTuple(x,y);
-    }
-
-    vector<State> currPlanCurve(){
-        vector<double>x,y;
-        const int n=5;
-        Point p0 = {cos(a0_),sin(a0_)}, p1={cos(a1_),sin(a1_)};
-        Point q2 = {p0.x+(p1.x-p0.x)*0.8f, p0.y+(p1.y-p0.y)*0.8f};
-        double dx = (q2.x - q0_.x)/(double)n, dy = (q2.y - q0_.y)/(double)n;
-        vector<State> states;
+    SensorGroup(){
+        double d = M_PI * 2.0 / n;
         for(int i=0; i<n; i++){
-            double t = (double)i/(double)n;
-            // x.push_back(q0_.x + dx*(double)i);
-            // y.push_back(q0_.y + dy*(double)i);
-            double x = q0_.x + dx*(double)i;
-            double y = q0_.y + dy*(double)i;
-            double yaw = atan2(q2.y-q0_.y, q2.x-q0_.x);
-
-            states.push_back({x,y,yaw});
+            sensors[i].x = cos(d*i);
+            sensors[i].y = sin(d*i);
         }
+    }
 
-        // Bezier curve.
+
+    double distance(Point p1, Point p2){
+        return sqrt((p1.x-p2.x)*(p1.x-p2.x)+(p1.y-p2.y)*(p1.y-p2.y));
+    }
+
+    double measurement(State st){
+        double d_min = 9999.0;
         for(int i=0; i<n; i++){
-            double t = (double)i/(double)n;
-            // x.push_back((1.0-t)*(1.0-t)*q2.x + 2.0*t*(1.0-t)*p1.x + t*t*q1_.x);
-            // y.push_back((1.0-t)*(1.0-t)*q2.y + 2.0*t*(1.0-t)*p1.y + t*t*q1_.y);
-            double x = (1.0-t)*(1.0-t)*q2.x + 2.0*t*(1.0-t)*p1.x + t*t*q1_.x;
-            double y = (1.0-t)*(1.0-t)*q2.y + 2.0*t*(1.0-t)*p1.y + t*t*q1_.y;
-            Point m1 = {(1-t)*q2.x + t*p1.x, (1-t)*q2.y + t*p1.y};
-            Point m2 = {(1-t)*p1.x + t*q1_.x, (1-t)*p1.y + t*q1_.y};
-            double yaw = atan2(m2.y-m1.y, m2.x-m1.x);
-            states.push_back({x,y,yaw});
+            double d = distance(st.p, sensors[i]);
+            d_min = d_min < d ? d : d_min;
         }
-        return states;
-    }
-
-    void move(){
-        if(future_state_.empty()){
-            future_state_ = plan();
-        }
-
-        // pos_ = {exe_curve_x_.front(), exe_curve_y_.front()};
-        // exe_curve_x_.erase(exe_curve_x_.begin());
-        // exe_curve_y_.erase(exe_curve_y_.begin());
-        curr_state_ = future_state_.front();
-        future_state_.erase(future_state_.begin());
-        // printf("exe_curve:%lu,x:%.4f,y:%.4f\n",exe_curve_x_.size(), pos_.x, pos_.y);
-    }
-
-    vector<State> plan(){
-        printf("replan path!\n");
-        a0_ = a1_;
-        a1_ = a2_;
-        double d = M_PI/180.0 * 60.0;
-        double a2_min =  a1_ + d, a2_max = a1_ + M_PI;
-        uniform_real_distribution<double> dist2(a2_min,a2_max);
-        a2_ = dist2(rand_);
-
-        q0_ = q1_;
-        Point p0 = {cos(a0_),sin(a0_)}, p1={cos(a1_),sin(a1_)}, p2={cos(a2_),sin(a2_)};
-        q1_ = {p1.x+(p2.x-p1.x)*0.2f, p1.y+(p2.y-p1.y)*0.2f};
-
-        return currPlanCurve();
+        return d_min;
     }
 
     render_obj_t renderObj(){
-
-        const int n = 20;
-        const double w = 2*M_PI/(double)n, r=0.05;
-        vector<double>s1_x,s1_y;
-        for(int i=0; i<9; i++){
-            double a = (double)i * M_PI / 4.0 + M_PI / 8.0;
-            Point p1 = {cos(a)*r + curr_state_.p.x, cos(a)*r + curr_state_.p.y};
-            // Point p2 = {cos(a+M_PI/4.0)*r + curr_state_.p.x, cos(a+M_PI/4.0)*r + curr_state_.p.y};
-            s1_x.push_back(p1.x);
-            // s1_x.push_back(p2.x);
-            s1_y.push_back(p1.y);
-            // s1_y.push_back(p2.y);
+        vector<double> x,y;
+        for(int i=0; i<n; i++){
+            x.push_back(sensors[i].x);
+            y.push_back(sensors[i].y);
         }
+        return render_obj_t { {{x,y,"r",SCATTER}} };
+    }
+};
 
-        vector<double>s2_x, s2_y;
-        s2_x.push_back(curr_state_.p.x);
-        s2_y.push_back(curr_state_.p.y);
-        s2_x.push_back(cos(curr_state_.yaw)*cos(M_PI/8)*r+curr_state_.p.x);
-        s2_y.push_back(sin(curr_state_.yaw)*cos(M_PI/8)*r+curr_state_.p.y);
+struct Particle{
 
-        return render_obj_t {{ {s1_x,s2_y,"r"}, {s2_x,s2_y,"r"} }};
+    // State
+    State state_;
+
+    // Measurement
+    double dist_;
+
+    double weight_;
+
+    static default_random_engine rand_;
+
+    void updateMeasurement(double d){
+        dist_ = d;
     }
 
+    // Update the weight of this particle base on the measurement.
+    void updateWeight(double sensor_dist){
+        double err = dist_ - sensor_dist;
+        double sigma2 = 0.9*0.9;
+        weight_ = exp(err*err / 2.0 / sigma2);
+    }
+
+    static Particle randomCreate(double x_min, double x_max, double y_min, double y_max){
+
+        Particle p;
+        auto dist = uniform_real_distribution<double>(x_min,x_max);
+        p.state_.p.x = dist(rand_);
+        dist = uniform_real_distribution<double>(y_min,y_max);
+        p.state_.p.y = dist(rand_);
+        dist = uniform_real_distribution<double>(0, M_PI*2);
+        p.state_.yaw = dist(rand_);
+        return p;
+    }
+
+};
+default_random_engine Particle::rand_;
+
+struct Estimator{
+
+    static constexpr int n = 50;
+
+    vector<Particle> particles_;
+    vector<double> weight_pdf_;
+
+    void resample(){
+        if(particles_.size() == 0){
+            for(int i=0; i<n; i++){
+                auto p = Particle::randomCreate(-1,1,-1,1);
+                particles_.push_back(p);
+                weight_pdf_.push_back(0);
+            }
+        }
+        else{
+
+            // Update weight PDF
+            double accum_weight = 0;
+            for(int i=0; i<particles_.size(); i++){
+                accum_weight += particles_[i].weight_;
+                weight_pdf_[i] = accum_weight;
+            }
+            
+            vector<Particle> new_particles;
+            for(int i=0; i<particles_.size(); i++){
+                uniform_real_distribution<double> uniform(0, accum_weight);
+                double w = uniform(Particle::rand_);
+                int index =std::lower_bound(weight_pdf_.begin(), weight_pdf_.end(), w) - weight_pdf_.begin();
+                Particle p;
+                p.state_ = particles_[index].state_;
+                p.state_.addNoise(0.05);
+                new_particles.push_back(p);
+            }
+
+            particles_ = new_particles;
+        }
+    }
+
+    void updateDistribution(){
+    } 
+
+    State output(){
+        double m_x=0,m_y=0,m_cnt=0;
+        for(auto p : particles_){
+            m_cnt += p.weight_;
+            m_x += p.state_.p.x;
+            m_y += p.state_.p.y;
+        }
+        return State({{m_x/m_cnt, m_y/m_cnt},0});
+    }
 };
 
 int main() {
 
     Robot walle;
     World world;
-
-    // for (int i=0; i<3; i++){
-    //     walle.plan();
-    //     vector<double>x, y;
-
-    //     tie(x, y) = walle.currPlanCurve();
-    //     for(auto xx : x){ walle_plan_x.push_back(xx); }
-    //     for(auto yy : y){ walle_plan_y.push_back(yy); }
-    // }
-    // auto walle_plan_data = create_data().x(walle_plan_x).y(walle_plan_y);
-    // auto walle_plan_plt = ax->line(walle_plan_data);
-    // auto walle_plan_plt = ax->points(walle_plan_data);
-
-    // shared_ptr<Geometry> walle_render = nullptr;
-
+    SensorGroup sensor_group;
+    Estimator estimator;
     Renderer rdr;
-    vector<double>walle_shape_x, walle_shape_y;
-    for(int i=0; i<1000; i++){
+
+    for(;;){
         walle.move();        
+
+
+        // Step 1: Get the measurement.
+        double real_mea = sensor_group.measurement(walle.curr_state_);
+
+        estimator.resample();
+
+        // Step 2: Update the weigth of particles.
+        for(auto &p : estimator.particles_){
+            p.updateMeasurement(sensor_group.measurement(p.state_));
+            p.updateWeight(real_mea);
+        }
+
+        State st_out = estimator.output();
+
+
+        // Draw all the entities.
         rdr.reset();
         rdr.addRenderObj(world.renderObj());
-        rdr.addRenderObj(walle.renderObj());
+        rdr.addRenderObj(walle.curr_state_.renderObj(0.1, "r"));
+        rdr.addRenderObj(sensor_group.renderObj());
+        for(auto p: estimator.particles_){
+            rdr.addRenderObj(p.state_.renderObj(0.05, "b"));
+        }
+        rdr.addRenderObj(st_out.renderObj(0.1, "g"));
         rdr.render();
         getchar();
     }
